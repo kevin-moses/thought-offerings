@@ -1,0 +1,19 @@
+{
+  "name": "thought-offerings",
+  "version": "1.0.0",
+  "description": "Text to particles animation with THREE.js and GSAP",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "three": "^0.178.0",
+    "three-spritetext": "^1.1.0"
+  }
+}

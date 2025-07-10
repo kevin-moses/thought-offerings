@@ -1,0 +1,3 @@
+[submodule "lib/photons2"]
+	path = lib/photons2
+	url = https://github.com/mkkellogg/Photons2

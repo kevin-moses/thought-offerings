@@ -1,0 +1,12 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+DO NOT RUN ANY CLI COMMANDS OR ASK TO RUN ANY. Just show me what commands to run. Assume I have a CLI with npx and vite working in the background. 
+
+Before coding, ask me for clarifications and questions. I am very particular about how this project should look.
+
+This art project will use Three.js, Photons 2 submodule and GSAP for both fire rendering and text renderning.
+
+Basic flow: The user types in text, or "thought offerings", and when finished a animation will move across the text to turn it into dust/particles that drop into a fire (using GSAP). The fire will burn generatively using Photons 2, and depending on the content of text / time since last offering will get smaller/dimmer or larger/brighter. There will be text overlay to guide the user. 
