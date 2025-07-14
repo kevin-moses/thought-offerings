@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as Photons from './lib/photons2/src/index.js';
+import { FogMaterial } from './fogmaterial.js';
 
 // Simple fire simulation built with Photons2
 // Instantiates three stacked particle systems (embers, base flame, bright flame)
@@ -8,24 +9,25 @@ import * as Photons from './lib/photons2/src/index.js';
 // THREE.Scene / THREE.WebGLRenderer setup.
 
 export class FireSimulation {
-  constructor(scene, threeRenderer) {
+  constructor(scene, threeRenderer, onReady = null) {
     this.scene = scene;
     this.renderer = threeRenderer;
     this.particleSystems = [];
     this.manager = new Photons.Manager();
     this.instancedParticleSystems = false;
     this.pitModel = null; // Store reference to the pit model
+    this.onReady = onReady; // Callback for when fire scene is ready
     
     // Store particle systems and original emission rates for intensity control
     this.embersSystem = null;
     this.baseFlameSystem = null;
     this.brightFlameSystem = null;
     this.originalEmissionRates = {
-      embers: 18,
-      baseFlame: 30,
-      brightFlame: 15
+      embers: 15,
+      baseFlame: 10,
+      brightFlame: 5
     };
-    this.currentIntensity = 0.45; // Start dim, brighten with text animation
+    this.currentIntensity = 0.35; // Start dim, brighten with text animation
     this.dimmingInterval = null; // Track dimming timer
     this.brighteningInterval = null; // Track brightening timer
     this.pendingIntensityIncrease = 0; // Queue of intensity to add gradually
@@ -36,17 +38,14 @@ export class FireSimulation {
 
     // Parent object for the fire so we can reposition easily
     this.root = new THREE.Object3D();
+    this.root.visible = false; // Start invisible, will be shown by main.js
     this.scene.add(this.root);
 
     // Initial placement
     this.updateRootPosition();
 
-    // Load the container model and build the particle systems
-    this.loadPit();
-    this.setupParticleSystems();
-    
-    // Start the gradual dimming effect (brightening starts automatically when characters are queued)
-    this.startDimming();
+    // Load the pit model FIRST, then set up particle systems
+    this.loadPitAndInitialize();
   }
 
   /**
@@ -84,7 +83,7 @@ export class FireSimulation {
         clearInterval(this.brighteningInterval);
         this.brighteningInterval = null;
       }
-    }, 500); // Every second
+    }, 1000); // Every second
   }
 
   /**
@@ -99,7 +98,7 @@ export class FireSimulation {
   }
 
   /**
-   * Start the gradual dimming effect (reduces intensity by 0.01 every second)
+   * Start the gradual dimming effect (reduces intensity by 0.01 every 2.5 seconds, minimum 0.3)
    */
   startDimming() {
     if (this.dimmingInterval) {
@@ -107,9 +106,9 @@ export class FireSimulation {
     }
     
     this.dimmingInterval = setInterval(() => {
-      const newIntensity = Math.max(0, this.currentIntensity - 0.01);
+      const newIntensity = Math.max(0.33, this.currentIntensity - 0.01);
       this.setIntensity(newIntensity);
-    }, 2000); // Every second
+    }, 2500); // Every 2.5 seconds
   }
 
   /**
@@ -124,10 +123,10 @@ export class FireSimulation {
 
   /**
    * Set the flame intensity dynamically
-   * @param {number} intensity - Intensity multiplier (0.0 = no flame, 1.0 = normal, >1.0 = intense)
+   * @param {number} intensity - Intensity multiplier (0.3 = minimum, 1.0 = normal, >1.0 = intense)
    */
   setIntensity(intensity) {
-    this.currentIntensity = Math.max(0, intensity); // Ensure non-negative
+    this.currentIntensity = Math.max(0.3, intensity); // Ensure minimum of 0.3
     
     // Update emission rates for all particle systems
     if (this.embersSystem && this.embersSystem.particleEmitter) {
@@ -139,7 +138,7 @@ export class FireSimulation {
     }
     
     if (this.brightFlameSystem && this.brightFlameSystem.particleEmitter) {
-      this.brightFlameSystem.particleEmitter.emissionRate = this.originalEmissionRates.brightFlame * this.currentIntensity;
+      this.brightFlameSystem.particleEmitter.emissionRate = this.originalEmissionRates.brightFlame * this.currentIntensity * 0.7;
     }
     
     console.log(`Fire intensity set to: ${this.currentIntensity}`);
@@ -153,8 +152,8 @@ export class FireSimulation {
     return this.currentIntensity;
   }
 
-  /** Load the GLB model for the fire container */
-  loadPit() {
+  /** Load the GLB model for the fire container, then initialize particle systems */
+  loadPitAndInitialize() {
     const loader = new GLTFLoader();
     loader.load(
       'textures/fire_pit.glb',
@@ -172,12 +171,32 @@ export class FireSimulation {
         this.root.add(model);
         
         console.log('Fire pit model loaded successfully');
+        
+        // Now that the pit is loaded, set up the particle systems
+        this.setupParticleSystems();
+        
+        // Start the gradual dimming effect (brightening starts automatically when characters are queued)
+        this.startDimming();
+        
+        // Notify that fire scene is ready
+        if (this.onReady) {
+          this.onReady();
+        }
+        
       },
       (progress) => {
         console.log('Loading progress:', (progress.loaded / progress.total * 100) + '%');
       },
       (error) => {
         console.error('Error loading fire pit model:', error);
+        // Even if pit fails to load, set up particle systems so the fire still works
+        this.setupParticleSystems();
+        this.startDimming();
+        
+        // Notify that fire scene is ready (even without pit)
+        if (this.onReady) {
+          this.onReady();
+        }
       }
     );
   }
@@ -218,6 +237,20 @@ export class FireSimulation {
     this.manager.addParticleSystem(this.baseFlameSystem);
     this.brightFlameSystem = this.setupBrightFlame(scale/2, flamePosition);
     this.manager.addParticleSystem(this.brightFlameSystem);
+
+    const fogParent = new THREE.Object3D();
+    const fogGeometry = new THREE.PlaneGeometry(0, 0);
+    const fogMaterial = new FogMaterial({
+        side: THREE.DoubleSide
+    });
+    fogMaterial.transparent = true;
+    fogMaterial.depthWrite = false;
+    const fogPlane = new THREE.Mesh(fogGeometry, fogMaterial);
+    fogPlane.scale.set(scale/2, scale/2, 0);
+    fogPlane.rotateX(-Math.PI / 2);
+    fogParent.add(fogPlane);
+    fogParent.position.y += 1.0;
+    this.scene.add(fogParent);
     
     // Apply the current intensity immediately to prevent initial burst
     this.setIntensity(this.currentIntensity);
@@ -250,7 +283,7 @@ export class FireSimulation {
       0.0, 0.0, false
     );
 
-    embersParticleSystem.addParticleStateInitializer(new Photons.LifetimeInitializer(3.0, 1.0, 0.0, 0.0, false));
+    embersParticleSystem.addParticleStateInitializer(new Photons.LifetimeInitializer(1.8, 0.6, 0.0, 0.0, false));
     embersParticleSystem.addParticleStateInitializer(new Photons.SizeInitializer(sizeInitializerGenerator));
     embersParticleSystem.addParticleStateInitializer(new Photons.BoxPositionInitializer(
       new THREE.Vector3(0.05 * scale, 0.0, 0.05 * scale),
@@ -312,7 +345,7 @@ export class FireSimulation {
     baseFlameParticleSystem.addParticleSequence(0, 18);
     const baseFlameParticleSequences = baseFlameParticleSystem.getParticleSequences();
 
-    baseFlameParticleSystem.addParticleStateInitializer(new Photons.LifetimeInitializer(2.5, 1.0, 0.0, 0.0, false));
+    baseFlameParticleSystem.addParticleStateInitializer(new Photons.LifetimeInitializer(1.5, 0.6, 0.0, 0.0, false));
     baseFlameParticleSystem.addParticleStateInitializer(new Photons.RotationInitializer(
       new Photons.RandomGenerator(0, Math.PI / 2.0, -Math.PI / 2.0, 0.0, 0.0, false)
     ));
@@ -397,7 +430,7 @@ export class FireSimulation {
     brightFlameParticleSystem.addParticleSequence(0, 16);
     const brightFlameParticleSequences = brightFlameParticleSystem.getParticleSequences();
 
-    brightFlameParticleSystem.addParticleStateInitializer(new Photons.LifetimeInitializer(2.0, 0.8, 0.0, 0.0, false));
+    brightFlameParticleSystem.addParticleStateInitializer(new Photons.LifetimeInitializer(1.2, 0.5, 0.0, 0.0, false));
     brightFlameParticleSystem.addParticleStateInitializer(new Photons.RotationInitializer(
       new Photons.RandomGenerator(0, Math.PI, -Math.PI / 2.0, 0.0, 0.0, false)
     ));

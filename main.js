@@ -41,7 +41,74 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 container.appendChild(renderer.domElement);
 
 // after renderer set up, instantiate fire simulation
-let fireSim = new FireSimulation(scene, renderer);
+let fireSim = new FireSimulation(scene, renderer, () => {
+  // Fire scene is ready, start fade-in animation
+  startFireFadeIn();
+});
+
+// Fire fade-in animation
+let fireOpacity = 0;
+let isFadingInFire = false;
+
+function startFireFadeIn() {
+  if (isFadingInFire) return;
+  
+  isFadingInFire = true;
+  fireSim.root.visible = true; // Make visible
+  console.log('Starting fire scene fade-in');
+  
+  // Start smooth fade-in animation
+  animateFireFadeIn();
+}
+
+function animateFireFadeIn() {
+  if (fireOpacity >= 1.0) {
+    fireOpacity = 1.0;
+    isFadingInFire = false;
+    console.log('Fire scene fade-in complete');
+    return;
+  }
+  
+  // Smooth fade over 3 seconds
+  fireOpacity += 1.0 / (60 * 3); // 60fps * 3 seconds
+  fireOpacity = Math.min(1.0, fireOpacity);
+  
+  // Apply opacity to all materials in the fire scene
+  fireSim.root.traverse((child) => {
+    if (child.material) {
+      if (Array.isArray(child.material)) {
+        child.material.forEach(mat => {
+          if (!mat.userData.originalOpacity) {
+            mat.userData.originalOpacity = mat.opacity || 1.0;
+          }
+          mat.transparent = true;
+          mat.opacity = fireOpacity * mat.userData.originalOpacity;
+        });
+      } else {
+        if (!child.material.userData.originalOpacity) {
+          child.material.userData.originalOpacity = child.material.opacity || 1.0;
+        }
+        child.material.transparent = true;
+        child.material.opacity = fireOpacity * child.material.userData.originalOpacity;
+      }
+    }
+  });
+  
+  // Apply opacity to particle system renderer materials
+  [fireSim.embersSystem, fireSim.baseFlameSystem, fireSim.brightFlameSystem].forEach(system => {
+    if (system && system.renderer && system.renderer.material) {
+      const mat = system.renderer.material;
+      if (!mat.userData.originalOpacity) {
+        mat.userData.originalOpacity = mat.opacity || 1.0;
+      }
+      mat.transparent = true;
+      mat.opacity = fireOpacity * mat.userData.originalOpacity;
+    }
+  });
+  
+  // Continue animation
+  requestAnimationFrame(animateFireFadeIn);
+}
 
 window.addEventListener("resize", () => {
   camera = createOrthoCamera();
@@ -51,6 +118,41 @@ window.addEventListener("resize", () => {
   // inside window resize listener, after SCREEN_BOTTOM update
   fireSim.onResize();
 });
+
+/********************
+ * Instruction cycling *
+ ********************/
+const instructionPrompts = [
+  "write a thought, then press enter", 
+  "send another thought",
+  "make an offering",
+  "make another offering",
+  "your thoughts won't last",
+  "declutter your brain",
+  "what's on your mind?",
+  "a thought shouldn't stay in your head forever",
+  "offer your thoughts",
+  "anything to say?",
+  "what are you thinking about?",
+  "anything worrying you?"
+];
+
+let currentPromptIndex = 0;
+let introSequenceComplete = false; // Track if intro sequence has finished
+
+function cycleToNextPrompt() {
+  // Only cycle if intro sequence is complete
+  if (!introSequenceComplete) return;
+  
+  currentPromptIndex = (currentPromptIndex + 1) % instructionPrompts.length;
+  if (instructions) {
+    instructions.style.opacity = "0";
+    setTimeout(() => {
+      instructions.textContent = instructionPrompts[currentPromptIndex];
+      instructions.style.opacity = "1";
+    }, 500); // Fade transition timing
+  }
+}
 
 /********************
  * Particle helpers *
@@ -165,7 +267,7 @@ const particleSystems = [];
 const PARTICLE_COUNT_PER_SPRITE = 15; // Number of particles per character
 const FIRE_ATTRACTION_STRENGTH = 250; // Attraction force toward fire (pixels/second²)
 const PARTICLE_SPREAD = 100; // Initial velocity spread
-const FIRE_ABSORPTION_DISTANCE = 50; // Distance at which particles disappear into fire
+const FIRE_ABSORPTION_DISTANCE = 70; // Distance at which particles disappear into fire
 let SCREEN_BOTTOM = -window.innerHeight / 2 - 100; // Bottom of screen plus buffer
 
 function createParticlesFromSprite(sprite, worldX, worldY) {
@@ -221,7 +323,7 @@ function createParticlesFromSprite(sprite, worldX, worldY) {
   });
   
   // Increase fire intensity when character is converted to particles
-  fireSim.increaseIntensityForCharacter(0.03);
+  fireSim.increaseIntensityForCharacter(0.01);
   
   // Remove the original sprite immediately
   scene.remove(sprite);
@@ -280,7 +382,13 @@ function updateParticles() {
         // Apply attraction force toward fire (stronger when closer)
         const attractionForce = FIRE_ATTRACTION_STRENGTH * (1 + 1 / Math.max(distance * 0.01, 0.1));
         
-        velocities[j3] += normalizedX * attractionForce * deltaTime;
+        // Funnel effect: Create much stronger X-axis pull when particles get close to fire
+        // This makes particles converge into a tight stream rather than spreading horizontally
+        // When distance < 150px: X-force scales from 1x (at 150px) to 4x (at fire center)
+        // When distance >= 150px: normal 1x force (no extra convergence)
+        const xFunnelMultiplier = distance < 150 ? (1 + 10 * (150 - distance) / 150) : 1;
+        
+        velocities[j3] += normalizedX * attractionForce * deltaTime * xFunnelMultiplier;
         velocities[j3 + 1] += normalizedY * attractionForce * deltaTime;
         velocities[j3 + 2] += normalizedZ * attractionForce * deltaTime;
       }
@@ -303,6 +411,7 @@ function updateParticles() {
     }
   }
 }
+
 
 function animateSprites() {
   const now = performance.now() / 1000;
@@ -327,7 +436,9 @@ function animateSprites() {
     textarea.disabled = false;
     textarea.style.opacity = "1";
     textarea.style.cursor = "text";
-    instructions.style.opacity = 1.0;
+    
+    // Cycle to next instruction prompt
+    cycleToNextPrompt();
   }
 }
 
@@ -364,7 +475,7 @@ function startIntroSequence() {
       setTimeout(() => {
         instructions.style.opacity = "0";
         setTimeout(() => {
-          instructions.textContent = "make an offering";
+          instructions.textContent = instructionPrompts[0]; // Use first prompt from array
           instructions.style.opacity = "1";
           
           // Enable textarea
@@ -373,6 +484,8 @@ function startIntroSequence() {
             textarea.style.opacity = "1";
             textarea.style.cursor = "text";
           }
+          
+          introSequenceComplete = true; // Mark intro sequence as complete
         }, fadeDuration / 2);
       }, displayDuration);
       return;
@@ -411,6 +524,52 @@ if (textarea) {
 }
 
 /********************
+ * About modal      *
+ ********************/
+const aboutBtn = document.getElementById('about-btn');
+const aboutModal = document.getElementById('about-modal');
+const closeBtn = document.querySelector('.close-btn');
+
+function showAboutModal() {
+  aboutModal.style.display = 'block';
+  // Trigger reflow to ensure the display change takes effect
+  aboutModal.offsetHeight;
+  aboutModal.classList.add('show');
+}
+
+function hideAboutModal() {
+  aboutModal.classList.remove('show');
+  setTimeout(() => {
+    aboutModal.style.display = 'none';
+  }, 300); // Wait for fade transition to complete
+}
+
+// Event listeners
+if (aboutBtn) {
+  aboutBtn.addEventListener('click', showAboutModal);
+}
+
+if (closeBtn) {
+  closeBtn.addEventListener('click', hideAboutModal);
+}
+
+// Close modal when clicking outside the content
+if (aboutModal) {
+  aboutModal.addEventListener('click', (e) => {
+    if (e.target === aboutModal) {
+      hideAboutModal();
+    }
+  });
+}
+
+// Close modal with Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && aboutModal.classList.contains('show')) {
+    hideAboutModal();
+  }
+});
+
+/********************
  * User interaction *
  ********************/
 if (textarea) {
@@ -425,6 +584,7 @@ if (textarea) {
       e.preventDefault();
       const value = textarea.value.trim();
       if (!value) return;
+      instructions.style.opacity = "0";
 
       const computed = window.getComputedStyle(textarea);
       const fontSizePx = parseFloat(computed.fontSize);
