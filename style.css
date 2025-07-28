@@ -161,6 +161,25 @@ body {
     opacity: 0.7;
 }
 
+/* Link styling */
+a {
+    color: white;
+    text-decoration: underline;
+    transition: opacity 0.3s ease;
+}
+
+a:visited {
+    color: white;
+}
+
+a:hover {
+    opacity: 0.8;
+}
+
+a:active {
+    color: white;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .modal-content {

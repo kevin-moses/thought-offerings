@@ -83,7 +83,7 @@ export class FireSimulation {
         clearInterval(this.brighteningInterval);
         this.brighteningInterval = null;
       }
-    }, 1000); // Every second
+    }, 500); // Every second
   }
 
   /**

@@ -471,23 +471,8 @@ function startIntroSequence() {
   
   function showNextMessage() {
     if (currentIndex >= messages.length) {
-      // Intro sequence complete, show final message and enable textarea
-      setTimeout(() => {
-        instructions.style.opacity = "0";
-        setTimeout(() => {
-          instructions.textContent = instructionPrompts[0]; // Use first prompt from array
-          instructions.style.opacity = "1";
-          
-          // Enable textarea
-          if (textarea) {
-            textarea.disabled = false;
-            textarea.style.opacity = "1";
-            textarea.style.cursor = "text";
-          }
-          
-          introSequenceComplete = true; // Mark intro sequence as complete
-        }, fadeDuration / 2);
-      }, displayDuration);
+      // All intro messages shown, now show final instruction and enable textarea
+      finishIntroSequence();
       return;
     }
     
@@ -507,6 +492,32 @@ function startIntroSequence() {
     }, fadeDuration / 2);
   }
   
+  function finishIntroSequence() {
+    // Show final instruction after a delay
+    setTimeout(() => {
+      instructions.style.opacity = "0";
+      setTimeout(() => {
+        // Show the final instruction
+        instructions.textContent = instructionPrompts[0]; // "write a thought, then press enter"
+        instructions.style.opacity = "1";
+        
+        // Enable textarea only after the final instruction is visible
+        setTimeout(() => {
+          if (textarea) {
+            textarea.disabled = false;
+            textarea.style.opacity = "1";
+            textarea.style.cursor = "text";
+            textarea.focus(); // Give it focus to indicate it's ready
+          }
+          
+          introSequenceComplete = true; // Mark intro sequence as complete
+          console.log('Intro sequence complete - textarea enabled');
+        }, 500); // Small delay after instruction appears
+        
+      }, fadeDuration / 2);
+    }, displayDuration);
+  }
+  
   // Start the sequence after a brief delay
   setTimeout(showNextMessage, displayDuration);
 }
@@ -517,8 +528,15 @@ startIntroSequence();
 // Prevent textarea from being focused during intro sequence
 if (textarea) {
   textarea.addEventListener('focus', function preventFocusDuringIntro() {
-    if (textarea.disabled) {
+    if (textarea.disabled || !introSequenceComplete) {
       textarea.blur();
+    }
+  });
+  
+  // Prevent any input during intro sequence
+  textarea.addEventListener('keydown', function preventInputDuringIntro(e) {
+    if (textarea.disabled || !introSequenceComplete) {
+      e.preventDefault();
     }
   });
 }
