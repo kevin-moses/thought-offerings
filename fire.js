@@ -162,10 +162,10 @@ export class FireSimulation {
         this.pitModel = model; // Store reference
         
         // Scale the model appropriately - adjust as needed
-        model.scale.set(20, 20, 20);
+        model.scale.set(30, 30, 30);
         
         // Position the model at the exact same position as the fire particles (0, 0, 0)
-        model.position.set(85, -25, 0);
+        model.position.set(128, -25, 0);
         
         // Add the model to the fire's root object
         this.root.add(model);
@@ -228,7 +228,7 @@ export class FireSimulation {
    ******************************/
 
   setupParticleSystems() {
-    let scale = 100.0;
+    let scale = 150.0;
     let flamePosition = new THREE.Vector3(0, 0, 0);
     
     this.embersSystem = this.setupEmbers(scale, flamePosition);

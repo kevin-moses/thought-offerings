@@ -380,13 +380,13 @@ function updateParticles() {
         const normalizedZ = directionZ / distance;
         
         // Apply attraction force toward fire (stronger when closer)
-        const attractionForce = FIRE_ATTRACTION_STRENGTH * (1 + 1 / Math.max(distance * 0.01, 0.1));
+        const attractionForce = FIRE_ATTRACTION_STRENGTH * (1.5 + 1 / Math.max(distance * 0.01, 0.1));
         
         // Funnel effect: Create much stronger X-axis pull when particles get close to fire
         // This makes particles converge into a tight stream rather than spreading horizontally
         // When distance < 150px: X-force scales from 1x (at 150px) to 4x (at fire center)
         // When distance >= 150px: normal 1x force (no extra convergence)
-        const xFunnelMultiplier = distance < 150 ? (1 + 10 * (150 - distance) / 150) : 1;
+        const xFunnelMultiplier = distance < 150 ? (5 + 10 * (150 - distance) / 150) : 1;
         
         velocities[j3] += normalizedX * attractionForce * deltaTime * xFunnelMultiplier;
         velocities[j3 + 1] += normalizedY * attractionForce * deltaTime;
