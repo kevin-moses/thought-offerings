@@ -2,9 +2,175 @@ import * as THREE from "three";
 import SpriteText from './sprite/index.js';
 import { FireSimulation } from './fire.js';
 
+/********************
+ * Audio setup      *
+ ********************/
+let backgroundAudio = null;
+let audioContext = null;
+let audioBuffer = null;
+let audioSource = null;
+let isAudioPlaying = false;
+let audioInitialized = false;
+let audioStartTime = 0;
+let audioPauseTime = 0;
+
+async function initializeAudio() {
+  try {
+    // Create both HTML5 Audio and Web Audio API instances
+    backgroundAudio = new Audio('public/audio.mp3');
+    backgroundAudio.loop = true;
+    backgroundAudio.volume = 0.5;
+    
+    // Initialize Web Audio API
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Load audio file for Web Audio API
+    const response = await fetch('public/audio.mp3');
+    const arrayBuffer = await response.arrayBuffer();
+    audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    
+    console.log('Audio loaded successfully');
+    audioInitialized = true;
+    updateAudioButtonState();
+    
+  } catch (error) {
+    console.error('Failed to initialize audio:', error);
+    // Fallback to HTML5 Audio only
+    try {
+      backgroundAudio = new Audio('public/audio.mp3');
+      backgroundAudio.loop = true;
+      backgroundAudio.volume = 0.5;
+      audioInitialized = true;
+      updateAudioButtonState();
+    } catch (fallbackError) {
+      console.error('Fallback audio initialization failed:', fallbackError);
+    }
+  }
+}
+
+
+
+function startWebAudioLoop() {
+  if (!audioContext || !audioBuffer) return;
+  
+  // Stop any existing source
+  if (audioSource) {
+    try {
+      audioSource.stop();
+    } catch (e) {
+      // Source might already be stopped
+    }
+    audioSource = null;
+  }
+  
+  audioSource = audioContext.createBufferSource();
+  audioSource.buffer = audioBuffer;
+  audioSource.connect(audioContext.destination);
+  audioSource.loop = true;
+  
+  // Calculate offset for resume
+  const offset = audioPauseTime > 0 ? audioPauseTime % audioBuffer.duration : 0;
+  audioSource.start(0, offset);
+  
+  // Update timing
+  audioStartTime = audioContext.currentTime - offset;
+  audioPauseTime = 0;
+  
+  // Handle when the loop ends (shouldn't happen with loop=true, but just in case)
+  audioSource.onended = () => {
+    if (isAudioPlaying) {
+      startWebAudioLoop();
+    }
+  };
+}
+
+function pauseWebAudio() {
+  if (audioSource && audioContext) {
+    audioPauseTime = audioContext.currentTime - audioStartTime;
+    try {
+      audioSource.stop();
+    } catch (e) {
+      // Source might already be stopped
+    }
+    audioSource = null;
+  }
+}
+
+
+
+
+
+
+
 const container = document.getElementById("three-container");
 const textarea = document.getElementById("text-input");
 const instructions = document.getElementById("instructions");
+const audioBtn = document.getElementById("audio-btn");
+
+
+
+// Update audio button state
+function updateAudioButtonState() {
+  if (!audioBtn) return;
+  
+  if (isAudioPlaying) {
+    audioBtn.textContent = '🔊';
+    audioBtn.classList.add('playing');
+    audioBtn.classList.remove('muted');
+    audioBtn.title = 'Audio is playing';
+  } else if (audioInitialized) {
+    audioBtn.textContent = '🔇';
+    audioBtn.classList.remove('playing');
+    audioBtn.classList.add('muted');
+    audioBtn.title = 'Click to start audio';
+  } else {
+    audioBtn.textContent = '⏳';
+    audioBtn.classList.remove('playing', 'muted');
+    audioBtn.title = 'Loading audio...';
+  }
+}
+
+// Add audio button click handler
+if (audioBtn) {
+  audioBtn.addEventListener('click', async () => {
+    if (!audioInitialized) {
+      console.log('Audio not initialized yet');
+      return;
+    }
+    
+    if (isAudioPlaying) {
+      // Pause audio
+      if (audioContext && audioSource) {
+        pauseWebAudio();
+      }
+      if (backgroundAudio) {
+        backgroundAudio.pause();
+      }
+      isAudioPlaying = false;
+      console.log('Audio paused');
+    } else {
+      // Start audio
+      if (audioContext && audioBuffer) {
+        // Use Web Audio API for better control
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
+        startWebAudioLoop();
+        isAudioPlaying = true;
+        console.log('Audio started via Web Audio API');
+      } else if (backgroundAudio) {
+        // Fallback to HTML5 Audio
+        await backgroundAudio.play();
+        isAudioPlaying = true;
+        console.log('Audio started via HTML5 Audio');
+      }
+    }
+    
+    updateAudioButtonState();
+  });
+}
+
+
 
 // Initially disable textarea during intro sequence
 if (textarea) {
@@ -322,8 +488,7 @@ function createParticlesFromSprite(sprite, worldX, worldY) {
     startTime: performance.now() / 1000
   });
   
-  // Increase fire intensity when character is converted to particles
-  fireSim.increaseIntensityForCharacter(0.01);
+
   
   // Remove the original sprite immediately
   scene.remove(sprite);
@@ -427,7 +592,8 @@ function animateSprites() {
     createParticlesFromSprite(sprite, worldX, worldY);
     animatedSprites.splice(i, 1);
   }
-  
+  // Increase fire intensity when character is converted to particles
+  fireSim.increaseIntensityForCharacter(0.001 * animatedSprites.length);
   // Update particle physics
   updateParticles();
   
@@ -522,7 +688,8 @@ function startIntroSequence() {
   setTimeout(showNextMessage, displayDuration);
 }
 
-// Start intro sequence when page loads
+// Initialize audio and start intro sequence when page loads
+initializeAudio();
 startIntroSequence();
 
 // Prevent textarea from being focused during intro sequence

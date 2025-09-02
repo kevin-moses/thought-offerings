@@ -63,6 +63,39 @@ body {
     opacity: 1;
 }
 
+/* Audio control button */
+#audio-btn {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #f8cc30;
+    border: 1px solid black;
+    padding: 8px 12px;
+    font-size: 18px;
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    z-index: 1000;
+    opacity: 0.7;
+}
+
+#audio-btn:hover {
+    background: rgba(248, 204, 48, 0.1);
+    border-color: #f8cc30;
+    opacity: 1;
+}
+
+#audio-btn.playing {
+    opacity: 1;
+    background: rgba(248, 204, 48, 0.2);
+}
+
+#audio-btn.muted {
+    opacity: 0.4;
+}
+
 /* About button */
 #about-btn {
     position: fixed;

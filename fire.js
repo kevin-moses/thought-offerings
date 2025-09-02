@@ -27,7 +27,7 @@ export class FireSimulation {
       baseFlame: 10,
       brightFlame: 5
     };
-    this.currentIntensity = 0.35; // Start dim, brighten with text animation
+    this.currentIntensity = 1; // Start dim, brighten with text animation
     this.dimmingInterval = null; // Track dimming timer
     this.brighteningInterval = null; // Track brightening timer
     this.pendingIntensityIncrease = 0; // Queue of intensity to add gradually
@@ -52,10 +52,10 @@ export class FireSimulation {
    * Increase fire intensity when a character is converted to particles
    * @param {number} amount - Amount to queue for gradual increase (default: 0.02)
    */
-  increaseIntensityForCharacter(amount = 0.02) {
+  increaseIntensityForCharacter(amount) {
     // Add to pending queue instead of immediately increasing
     this.pendingIntensityIncrease += amount;
-    
+    console.log('starting intensity increase to: ', this.pendingIntensityIncrease);
     // Start the brightening process if not already running
     if (!this.brighteningInterval) {
       this.startBrightening();
@@ -73,17 +73,16 @@ export class FireSimulation {
     this.brighteningInterval = setInterval(() => {
       if (this.pendingIntensityIncrease > 0) {
         // Apply a small portion of the pending increase
-        const incrementThisSecond = Math.min(0.01, this.pendingIntensityIncrease);
+        const incrementThisSecond = Math.min(2, this.pendingIntensityIncrease);
+        console.log('applying intensity increase of: ', incrementThisSecond);
+        this.changeFlame(incrementThisSecond);
         this.pendingIntensityIncrease -= incrementThisSecond;
-        
-        const newIntensity = Math.min(10, this.currentIntensity + incrementThisSecond);
-        this.setIntensity(newIntensity);
       } else {
         // No more pending increases, stop the brightening timer
         clearInterval(this.brighteningInterval);
         this.brighteningInterval = null;
       }
-    }, 500); // Every second
+    }, 5000); // Every 5 seconds
   }
 
   /**
@@ -98,7 +97,7 @@ export class FireSimulation {
   }
 
   /**
-   * Start the gradual dimming effect (reduces intensity by 0.01 every 2.5 seconds, minimum 0.3)
+   * Start the gradual dimming effect (reduces intensity by 0.1 every 5 seconds)
    */
   startDimming() {
     if (this.dimmingInterval) {
@@ -106,9 +105,8 @@ export class FireSimulation {
     }
     
     this.dimmingInterval = setInterval(() => {
-      const newIntensity = Math.max(0.33, this.currentIntensity - 0.01);
-      this.setIntensity(newIntensity);
-    }, 2500); // Every 2.5 seconds
+      this.changeFlame(-1);
+    }, 60000); // Every 90 seconds
   }
 
   /**
@@ -126,7 +124,7 @@ export class FireSimulation {
    * @param {number} intensity - Intensity multiplier (0.3 = minimum, 1.0 = normal, >1.0 = intense)
    */
   setIntensity(intensity) {
-    this.currentIntensity = Math.max(0.3, intensity); // Ensure minimum of 0.3
+    this.currentIntensity = intensity; // no minimum
     
     // Update emission rates for all particle systems
     if (this.embersSystem && this.embersSystem.particleEmitter) {
@@ -142,6 +140,18 @@ export class FireSimulation {
     }
     
     console.log(`Fire intensity set to: ${this.currentIntensity}`);
+  }
+
+  changeFlame(amount) {
+    // Clamp emission rate between 5 and 20
+    const minVal = 8;
+    const maxVal = 20;
+    if (amount < 0) {
+      this.baseFlameSystem.particleEmitter.emissionRate = Math.max(minVal, this.baseFlameSystem.particleEmitter.emissionRate * 0.5);
+    }
+    const newRate = this.baseFlameSystem.particleEmitter.emissionRate + amount;
+    this.baseFlameSystem.particleEmitter.emissionRate = Math.max(minVal, Math.min(maxVal, newRate));
+    console.log(`Base flame emission rate set to: ${this.baseFlameSystem.particleEmitter.emissionRate}`);
   }
 
   /**
