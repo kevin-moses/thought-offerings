@@ -1,6 +1,21 @@
 import * as THREE from "three";
 import SpriteText from './sprite/index.js';
 import { FireSimulation } from './fire.js';
+import { analytics } from './firebase.js';
+import { logEvent } from 'firebase/analytics';
+
+/********************
+ * Analytics setup  *
+ ********************/
+function trackEvent(eventName, parameters = {}) {
+  if (analytics) {
+    try {
+      logEvent(analytics, eventName, parameters);
+    } catch (error) {
+      console.warn('Analytics tracking failed:', error);
+    }
+  }
+}
 
 /********************
  * Audio setup      *
@@ -149,6 +164,7 @@ if (audioBtn) {
       }
       isAudioPlaying = false;
       console.log('Audio paused');
+      trackEvent('audio_paused');
     } else {
       // Start audio
       if (audioContext && audioBuffer) {
@@ -157,13 +173,15 @@ if (audioBtn) {
           await audioContext.resume();
         }
         startWebAudioLoop();
-        isAudioPlaying = true;
-        console.log('Audio started via Web Audio API');
+              isAudioPlaying = true;
+      console.log('Audio started via Web Audio API');
+      trackEvent('audio_started', { method: 'web_audio_api' });
       } else if (backgroundAudio) {
         // Fallback to HTML5 Audio
         await backgroundAudio.play();
         isAudioPlaying = true;
         console.log('Audio started via HTML5 Audio');
+        trackEvent('audio_started', { method: 'html5_audio' });
       }
     }
     
@@ -696,6 +714,12 @@ startIntroSequence();
 // Set initial audio button state to muted
 updateAudioButtonState();
 
+// Track page view
+trackEvent('page_view', {
+  page_title: 'thought offerings',
+  page_location: window.location.href
+});
+
 // Prevent textarea from being focused during intro sequence
 if (textarea) {
   textarea.addEventListener('focus', function preventFocusDuringIntro() {
@@ -724,6 +748,7 @@ function showAboutModal() {
   // Trigger reflow to ensure the display change takes effect
   aboutModal.offsetHeight;
   aboutModal.classList.add('show');
+  trackEvent('about_modal_opened');
 }
 
 function hideAboutModal() {
