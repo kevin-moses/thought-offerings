@@ -124,8 +124,9 @@ function updateAudioButtonState() {
     audioBtn.classList.add('muted');
     audioBtn.title = 'Click to start audio';
   } else {
-    audioBtn.textContent = '⏳';
-    audioBtn.classList.remove('playing', 'muted');
+    audioBtn.textContent = '🔇';
+    audioBtn.classList.remove('playing');
+    audioBtn.classList.add('muted');
     audioBtn.title = 'Loading audio...';
   }
 }
@@ -691,6 +692,9 @@ function startIntroSequence() {
 // Initialize audio and start intro sequence when page loads
 initializeAudio();
 startIntroSequence();
+
+// Set initial audio button state to muted
+updateAudioButtonState();
 
 // Prevent textarea from being focused during intro sequence
 if (textarea) {
