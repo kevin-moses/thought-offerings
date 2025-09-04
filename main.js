@@ -1,19 +1,49 @@
 import * as THREE from "three";
 import SpriteText from './sprite/index.js';
 import { FireSimulation } from './fire.js';
-import { analytics } from './firebase.js';
+import { analytics, db } from './firebase.js';
 import { logEvent } from 'firebase/analytics';
+import { collection, addDoc } from 'firebase/firestore';
 
 /********************
  * Analytics setup  *
  ********************/
 function trackEvent(eventName, parameters = {}) {
-  if (analytics) {
+  console.log('Attempting to track event:', eventName, parameters);
+  // Only track in production
+  if (analytics && !window.location.hostname.includes('localhost')) {
     try {
       logEvent(analytics, eventName, parameters);
+      console.log('Event tracked successfully:', eventName);
     } catch (error) {
       console.warn('Analytics tracking failed:', error);
     }
+  } else if (window.location.hostname.includes('localhost')) {
+    console.log('Analytics tracking skipped (localhost)');
+  } else {
+    console.warn('Analytics not initialized');
+  }
+}
+
+// Firestore tracking (bypasses ad blockers)
+async function trackEventFirestore(eventName, parameters = {}) {
+  // Only track in production
+  if (db && !window.location.hostname.includes('localhost')) {
+    try {
+      await addDoc(collection(db, "events"), {
+        type: eventName,
+        parameters: parameters,
+        timestamp: Date.now(),
+        userAgent: navigator.userAgent,
+        page_location: window.location.href,
+        page_title: document.title
+      });
+      console.log('Event tracked in Firestore:', eventName);
+    } catch (error) {
+      console.warn('Firestore tracking failed:', error);
+    }
+  } else if (window.location.hostname.includes('localhost')) {
+    console.log('Firestore tracking skipped (localhost)');
   }
 }
 
@@ -165,6 +195,7 @@ if (audioBtn) {
       isAudioPlaying = false;
       console.log('Audio paused');
       trackEvent('audio_paused');
+      trackEventFirestore('audio_paused');
     } else {
       // Start audio
       if (audioContext && audioBuffer) {
@@ -176,12 +207,14 @@ if (audioBtn) {
               isAudioPlaying = true;
       console.log('Audio started via Web Audio API');
       trackEvent('audio_started', { method: 'web_audio_api' });
+      trackEventFirestore('audio_started', { method: 'web_audio_api' });
       } else if (backgroundAudio) {
         // Fallback to HTML5 Audio
         await backgroundAudio.play();
         isAudioPlaying = true;
         console.log('Audio started via HTML5 Audio');
         trackEvent('audio_started', { method: 'html5_audio' });
+        trackEventFirestore('audio_started', { method: 'html5_audio' });
       }
     }
     
@@ -720,6 +753,12 @@ trackEvent('page_view', {
   page_location: window.location.href
 });
 
+// Also track in Firestore (bypasses ad blockers)
+trackEventFirestore('page_view', {
+  page_title: 'thought offerings',
+  page_location: window.location.href
+});
+
 // Prevent textarea from being focused during intro sequence
 if (textarea) {
   textarea.addEventListener('focus', function preventFocusDuringIntro() {
@@ -749,6 +788,7 @@ function showAboutModal() {
   aboutModal.offsetHeight;
   aboutModal.classList.add('show');
   trackEvent('about_modal_opened');
+  trackEventFirestore('about_modal_opened');
 }
 
 function hideAboutModal() {
