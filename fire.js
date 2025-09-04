@@ -55,7 +55,6 @@ export class FireSimulation {
   increaseIntensityForCharacter(amount) {
     // Add to pending queue instead of immediately increasing
     this.pendingIntensityIncrease += amount;
-    console.log('starting intensity increase to: ', this.pendingIntensityIncrease);
     // Start the brightening process if not already running
     if (!this.brighteningInterval) {
       this.startBrightening();
