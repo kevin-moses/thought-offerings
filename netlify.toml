@@ -39,4 +39,10 @@
 [[headers]]
   for = "/*.gltf"
   [headers.values]
-    Content-Type = "model/gltf+json" 
+    Content-Type = "model/gltf+json"
+
+# MIME types for audio files
+[[headers]]
+  for = "/*.mp3"
+  [headers.values]
+    Content-Type = "audio/mpeg" 

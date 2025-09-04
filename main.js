@@ -17,7 +17,7 @@ let audioPauseTime = 0;
 async function initializeAudio() {
   try {
     // Create both HTML5 Audio and Web Audio API instances
-    backgroundAudio = new Audio('public/audio.mp3');
+    backgroundAudio = new Audio('audio.mp3');
     backgroundAudio.loop = true;
     backgroundAudio.volume = 0.5;
     
@@ -25,7 +25,7 @@ async function initializeAudio() {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     
     // Load audio file for Web Audio API
-    const response = await fetch('public/audio.mp3');
+    const response = await fetch('audio.mp3');
     const arrayBuffer = await response.arrayBuffer();
     audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
     
@@ -37,7 +37,7 @@ async function initializeAudio() {
     console.error('Failed to initialize audio:', error);
     // Fallback to HTML5 Audio only
     try {
-      backgroundAudio = new Audio('public/audio.mp3');
+      backgroundAudio = new Audio('audio.mp3');
       backgroundAudio.loop = true;
       backgroundAudio.volume = 0.5;
       audioInitialized = true;
