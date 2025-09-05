@@ -159,17 +159,17 @@ function updateAudioButtonState() {
   if (!audioBtn) return;
   
   if (isAudioPlaying) {
-    audioBtn.textContent = '🔊';
+    audioBtn.textContent = '🔊 music';
     audioBtn.classList.add('playing');
     audioBtn.classList.remove('muted');
     audioBtn.title = 'Audio is playing';
   } else if (audioInitialized) {
-    audioBtn.textContent = '🔇';
+    audioBtn.textContent = '🔇 music';
     audioBtn.classList.remove('playing');
     audioBtn.classList.add('muted');
     audioBtn.title = 'Click to start audio';
   } else {
-    audioBtn.textContent = '🔇';
+    audioBtn.textContent = '🔇 music';
     audioBtn.classList.remove('playing');
     audioBtn.classList.add('muted');
     audioBtn.title = 'Loading audio...';
@@ -655,6 +655,12 @@ function animateSprites() {
     textarea.style.opacity = "1";
     textarea.style.cursor = "text";
     
+    // Auto-focus the textarea so user can immediately start typing
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }, 100);
+    
     // Cycle to next instruction prompt
     cycleToNextPrompt();
   }
@@ -680,7 +686,8 @@ requestAnimationFrame(tick);
 function startIntroSequence() {
   const messages = [
     "but it won't last forever.",
-    "if you'd like, you can help keep it going by offering some of your thoughts to it."
+    "if you'd like, you can help keep it going by offering some of your thoughts to it.",
+    "nothing you type here is tracked or stored. no one can see what you write. "
   ];
   
   let currentIndex = 0;
@@ -726,10 +733,17 @@ function startIntroSequence() {
             textarea.style.opacity = "1";
             textarea.style.cursor = "text";
             textarea.focus(); // Give it focus to indicate it's ready
+            
+            // Ensure focus is maintained and cursor is visible
+            setTimeout(() => {
+              textarea.focus();
+              // Place cursor at the end of any existing text
+              textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            }, 100);
           }
           
           introSequenceComplete = true; // Mark intro sequence as complete
-          console.log('Intro sequence complete - textarea enabled');
+          console.log('Intro sequence complete - textarea enabled and focused');
         }, 500); // Small delay after instruction appears
         
       }, fadeDuration / 2);
@@ -774,6 +788,19 @@ if (textarea) {
     }
   });
 }
+
+// Global focus handler to keep textarea focused when possible
+document.addEventListener('click', function(e) {
+  // If user clicks anywhere and textarea is enabled, refocus it
+  if (introSequenceComplete && textarea && !textarea.disabled) {
+    // Small delay to ensure any other click handlers run first
+    setTimeout(() => {
+      if (document.activeElement !== textarea) {
+        textarea.focus();
+      }
+    }, 10);
+  }
+});
 
 /********************
  * About modal      *
